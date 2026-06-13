@@ -1,30 +1,14 @@
 # luci-app-run
 
-`luci-app-run` is a small OpenWrt LuCI application for uploading and running
-makeself-generated `.run` installers.
+`luci-app-run` 是一个轻量级的 OpenWrt LuCI 应用，用于上传并运行由 makeself 生成的 `.run` 安装程序。
 
-The package intentionally does not implement an app store or software catalog.
-It only accepts a `.run` file, uploads it to `/tmp/luci-app-run`, marks it
-executable, runs it in the background, and streams the execution log back to the
-LuCI page.
+它仅接受用户上传的 `.run` 文件，将其保存到 `/tmp/luci-app-run` 目录，赋予可执行权限，在后台运行该安装程序，并将执行日志实时返回到 LuCI 页面。
 
-Large uploads use a one-time-token CGI endpoint at
-`/cgi-bin/luci-app-run-upload` instead of base64-over-ubus chunking. This keeps
-large `.run` uploads close to raw HTTP upload speed.
+对于较大文件的上传，采用独立的 CGI 接口 `/cgi-bin/luci-app-run-upload` 进行一次性令牌验证的二进制上传，避免使用 base64-over-ubus 分块传输，从而获得接近原生 HTTP 的上传速度。
 
-## Files
+## 使用 OpenWrt SDK 编译
 
-- `Makefile` - OpenWrt/LuCI package definition.
-- `htdocs/luci-static/resources/view/run/index.js` - LuCI web interface.
-- `root/usr/libexec/rpcd/luci-app-run` - rpcd backend for upload and execution.
-- `root/www/cgi-bin/luci-app-run-upload` - fast binary upload endpoint.
-- `root/usr/share/luci/menu.d/luci-app-run.json` - LuCI menu entry.
-- `root/usr/share/rpcd/acl.d/luci-app-run.json` - rpcd ACL permissions.
-- `po/zh-cn/run.po` - Simplified Chinese translation source.
-
-## Build with OpenWrt SDK
-
-Copy or symlink this directory into your OpenWrt SDK package feed, for example:
+将本目录复制或软链接到 OpenWrt SDK 的 package feed 中，例如：
 
 ```sh
 mkdir -p package/luci-app-run
@@ -34,20 +18,20 @@ cp -a /path/to/luci-app-run/* package/luci-app-run/
 make package/luci-app-run/compile V=s
 ```
 
-The resulting package will be under:
+## 安装方法
+### Luci 25.12.x
 
-```text
-bin/packages/<target>/base/luci-app-run_1.0.0-1_all.ipk
+```sh
+wget -O luci-app-run.apk <替换为apk地址>
+apk update
+apk add --allow-untrusted luci-app-run.apk
 ```
 
-On apk-based OpenWrt 25.12 builds, build the `.apk` with the matching target
-SDK, for example the x86/64 SDK for x86_64 systems. Do not use the old manual
-ipk repack approach for apk packages; apk v2/v3 package metadata and repository
-format should be produced by the OpenWrt SDK tooling.
+### Luci 21——24.10 
 
-## Notes
-
-- Only files ending in `.run` are accepted.
-- Uploads larger than 256 MiB are rejected by the backend.
-- Only one installer can run at a time.
-- Uploaded files and logs are temporary and live below `/tmp/luci-app-run`.
+```sh
+wget -O luci-app-run.ipk <替换为ipk地址>
+opkg update
+opkg install luci-app-run.ipk
+```
+- 或者在软件包 上传安装ipk
