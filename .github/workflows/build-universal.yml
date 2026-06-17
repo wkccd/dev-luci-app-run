@@ -1,4 +1,4 @@
-name: Build 21 aarch64_generic & a53
+name: Build Universal ipk
 
 on:
   workflow_dispatch:
@@ -11,11 +11,10 @@ jobs:
       matrix:
         platform:
           - "aarch64_generic"
-          - "aarch64_cortex-a53"
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install deps
         run: |
@@ -26,14 +25,7 @@ jobs:
 
       - name: Download OpenWrt SDK
         run: |
-          if [ "${{ matrix.platform }}" = "aarch64_cortex-a53" ]; then
-            URL="https://downloads.openwrt.org/releases/21.02.7/targets/mediatek/mt7622/openwrt-sdk-21.02.7-mediatek-mt7622_gcc-8.4.0_musl.Linux-x86_64.tar.xz"
-            echo "Downloading SDK for mediatek/mt7622 (aarch64_cortex-a53)..."
-          else
-            URL="https://downloads.openwrt.org/releases/21.02.7/targets/armvirt/64/openwrt-sdk-21.02.7-armvirt-64_gcc-8.4.0_musl.Linux-x86_64.tar.xz"
-            echo "Downloading SDK for armvirt/64..."
-          fi
-
+          URL="https://downloads.openwrt.org/releases/21.02.7/targets/armvirt/64/openwrt-sdk-21.02.7-armvirt-64_gcc-8.4.0_musl.Linux-x86_64.tar.xz"
           echo "URL: $URL"
     
           # 下载并保存为正确的扩展名
@@ -77,7 +69,7 @@ jobs:
           mkdir -p dist
           find sdk/bin -type f -name "luci-app-run*.ipk" -print0 | while IFS= read -r -d '' file; do
             base=$(basename "$file" .ipk)
-            cp -v "$file" "dist/${base}-${{ matrix.platform }}.ipk"
+            cp -v "$file" "dist/${base}.ipk"
           done
 
       - name: Upload artifact
@@ -114,7 +106,7 @@ jobs:
           echo "tag=v$(date -u +%Y.%m.%d)" >> $GITHUB_OUTPUT
 
       - name: Publish Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
           name: luci-app-run ${{ steps.tag.outputs.tag }}
