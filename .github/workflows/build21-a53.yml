@@ -1,0 +1,124 @@
+name: Build 21 aarch64_generic & a53
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - "aarch64_generic"
+          - "aarch64_cortex-a53"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install deps
+        run: |
+          sudo apt update
+          sudo apt install -y build-essential clang flex bison g++ gawk \
+            gcc-multilib g++-multilib gettext git libncurses5-dev libssl-dev \
+            python3 unzip file wget rsync zstd
+
+      - name: Download OpenWrt SDK
+        run: |
+          if [ "${{ matrix.platform }}" = "aarch64_cortex-a53" ]; then
+            URL="https://downloads.openwrt.org/releases/21.02.7/targets/mediatek/mt7622/openwrt-sdk-21.02.7-mediatek-mt7622_gcc-8.4.0_musl.Linux-x86_64.tar.xz"
+            echo "Downloading SDK for mediatek/mt7622 (aarch64_cortex-a53)..."
+          else
+            URL="https://downloads.openwrt.org/releases/21.02.7/targets/armvirt/64/openwrt-sdk-21.02.7-armvirt-64_gcc-8.4.0_musl.Linux-x86_64.tar.xz"
+            echo "Downloading SDK for armvirt/64..."
+          fi
+
+          echo "URL: $URL"
+    
+          # 下载并保存为正确的扩展名
+          wget -q --show-progress "$URL" -O sdk.tar.xz
+    
+          # 清理旧目录（防止重复运行出错）
+          rm -rf sdk
+    
+          # 解压 tar.xz
+          echo "Extracting SDK..."
+          tar -xf sdk.tar.xz
+    
+          # 移动到 sdk 目录（兼容不同版本的文件夹命名）
+          mv openwrt-sdk-* sdk 2>/dev/null || true
+    
+          echo "SDK extracted to ./sdk/"
+          ls -la sdk/ | head -n 10
+
+      - name: Update feeds
+        run: |
+          cd sdk
+          ./scripts/feeds update -a
+          ./scripts/feeds install luci-app-run
+          ./scripts/feeds install luci-i18n-run-zh-cn
+
+      - name: Copy package
+        run: |
+          cp -r luci-app-run sdk/package/
+
+      - name: Build package
+        run: |
+          cd sdk
+          make defconfig
+          make package/luci-app-run/compile V=s -j$(nproc)
+
+      # =========================
+      # Collect only luci-app-run*.apk
+      # =========================
+      - name: Prepare artifacts
+        run: |
+          mkdir -p dist
+          find sdk/bin -type f -name "luci-app-run*.apk" -print0 | while IFS= read -r -d '' file; do
+            base=$(basename "$file" .apk)
+            cp -v "$file" "dist/${base}-${{ matrix.platform }}.apk"
+          done
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: luci-app-run-${{ matrix.platform }}
+          path: dist/
+          retention-days: 1        # 只保留1天，减少占用
+
+  # ========================
+  # Release Job
+  # ========================
+  release:
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist-all
+
+      - name: Flatten files
+        run: |
+          mkdir -p release
+          find dist-all -type f -name "*.apk" -exec cp -v {} release/ \;
+          ls -lh release/
+
+      - name: Create Release
+        id: tag
+        run: |
+          echo "tag=v$(date -u +%Y.%m.%d)" >> $GITHUB_OUTPUT
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag.outputs.tag }}
+          name: luci-app-run ${{ steps.tag.outputs.tag }}
+          files: release/luci-app-run*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
