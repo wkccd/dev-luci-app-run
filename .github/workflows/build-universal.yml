@@ -1,4 +1,4 @@
-name: Build Universal ipk
+name: Build OpenWrt 21-24 Packages
 
 on:
   workflow_dispatch:
