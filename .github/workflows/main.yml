@@ -3,6 +3,10 @@ name: Build OpenWrt 25.12 Packages
 on:
   workflow_dispatch:
 
+env:
+  OPENWRT_VER: 25.12.4
+  GCC_VER: 14.3.0
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -11,16 +15,16 @@ jobs:
       matrix:
         include:
           - target: x86/64
+            platform: x86-64
             arch: x86-64
-            sdk: openwrt-sdk-25.12.4-x86-64_gcc-14.3.0_musl.Linux-x86_64.tar.zst
 
           - target: rockchip/armv8
+            platform: rockchip-armv8
             arch: aarch64_cortex-a53
-            sdk: openwrt-sdk-25.12.4-rockchip-armv8_gcc-14.3.0_musl.Linux-x86_64.tar.zst
 
           - target: armsr/armv8
+            platform: armsr-armv8
             arch: aarch64_generic
-            sdk: openwrt-sdk-25.12.4-armsr-armv8_gcc-14.3.0_musl.Linux-x86_64.tar.zst
 
     steps:
       - name: Checkout
@@ -40,7 +44,9 @@ jobs:
       # =========================
       - name: Download OpenWrt SDK
         run: |
-          URL="https://downloads.openwrt.org/releases/25.12.4/targets/${{ matrix.target }}/${{ matrix.sdk }}"
+          SDK="openwrt-sdk-${OPENWRT_VER}-${{ matrix.platform }}_gcc-${GCC_VER}_musl.Linux-x86_64.tar.zst"
+          URL="https://downloads.openwrt.org/releases/${OPENWRT_VER}/targets/${{ matrix.target }}/$SDK"
+
           echo "Downloading:"
           echo "$URL"
 
@@ -49,7 +55,7 @@ jobs:
           mv openwrt-sdk-* sdk
 
       # =========================
-      # feeds
+      # Update feeds
       # =========================
       - name: Update feeds
         run: |
@@ -59,14 +65,14 @@ jobs:
           ./scripts/feeds install luci-i18n-run-zh-cn
 
       # =========================
-      # copy package
+      # Copy package
       # =========================
       - name: Copy luci-app-run
         run: |
           cp -r luci-app-run sdk/package/
 
       # =========================
-      # build
+      # Build
       # =========================
       - name: Build package
         run: |
@@ -74,16 +80,16 @@ jobs:
           make defconfig
           make package/luci-app-run/compile V=s -j$(nproc)
 
-      # =========================
-      # collect output
-      # =========================
-      - name: Collect APK
+      - name: Prepare artifacts
         run: |
           mkdir -p dist
-          find sdk/bin -type f -name "*.apk" -exec cp -v {} dist/ \;
+          find sdk/bin -type f -name "luci-app-run*.apk" -print0 | while IFS= read -r -d '' file; do
+            base=$(basename "$file" .apk)
+            cp -v "$file" "dist/${base}-${{ matrix.arch }}.apk"
+          done
 
       # =========================
-      # upload artifact
+      # Upload artifact
       # =========================
       - name: Upload artifact
         uses: actions/upload-artifact@v4
