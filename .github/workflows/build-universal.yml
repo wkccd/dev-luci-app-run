@@ -8,9 +8,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
-      matrix:
-        platform:
-          - "aarch64_generic"
+
 
     steps:
       - name: Checkout
@@ -75,7 +73,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: luci-app-run-${{ matrix.platform }}
+          name: luci-app-run
           path: dist/
           retention-days: 1        # 只保留1天，减少占用
 
