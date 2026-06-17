@@ -70,14 +70,14 @@ jobs:
           make package/luci-app-run/compile V=s -j$(nproc)
 
       # =========================
-      # Collect only luci-app-run*.apk
+      # Collect only luci-app-run*.ipk
       # =========================
       - name: Prepare artifacts
         run: |
           mkdir -p dist
-          find sdk/bin -type f -name "luci-app-run*.apk" -print0 | while IFS= read -r -d '' file; do
-            base=$(basename "$file" .apk)
-            cp -v "$file" "dist/${base}-${{ matrix.platform }}.apk"
+          find sdk/bin -type f -name "luci-app-run*.ipk" -print0 | while IFS= read -r -d '' file; do
+            base=$(basename "$file" .ipk)
+            cp -v "$file" "dist/${base}-${{ matrix.platform }}.ipk"
           done
 
       - name: Upload artifact
@@ -105,7 +105,7 @@ jobs:
       - name: Flatten files
         run: |
           mkdir -p release
-          find dist-all -type f -name "*.apk" -exec cp -v {} release/ \;
+          find dist-all -type f -name "*.ipk" -exec cp -v {} release/ \;
           ls -lh release/
 
       - name: Create Release
