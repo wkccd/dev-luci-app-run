@@ -1,4 +1,4 @@
-name: Build x86-64 24&25
+name: Build 25 x86-64
 
 on:
   workflow_dispatch:
@@ -11,7 +11,6 @@ jobs:
       fail-fast: false
       matrix:
         sdk:
-          - "24.10.6"
           - "25.12.4"
 
     steps:
