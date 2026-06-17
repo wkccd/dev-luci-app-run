@@ -4,11 +4,10 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-release:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout
@@ -25,20 +24,14 @@ jobs:
         run: |
           URL="https://downloads.openwrt.org/releases/21.02.7/targets/armvirt/64/openwrt-sdk-21.02.7-armvirt-64_gcc-8.4.0_musl.Linux-x86_64.tar.xz"
           echo "URL: $URL"
-    
-          # 下载并保存为正确的扩展名
+          
           wget -q --show-progress "$URL" -O sdk.tar.xz
-    
-          # 清理旧目录（防止重复运行出错）
           rm -rf sdk
-    
-          # 解压 tar.xz
+          
           echo "Extracting SDK..."
           tar -xf sdk.tar.xz
-    
-          # 移动到 sdk 目录（兼容不同版本的文件夹命名）
           mv openwrt-sdk-* sdk 2>/dev/null || true
-    
+          
           echo "SDK extracted to ./sdk/"
           ls -la sdk/ | head -n 10
 
@@ -59,43 +52,10 @@ jobs:
           make defconfig
           make package/luci-app-run/compile V=s -j$(nproc)
 
-      # =========================
-      # Collect only luci-app-run*.ipk
-      # =========================
-      - name: Prepare artifacts
-        run: |
-          mkdir -p dist
-          find sdk/bin -type f -name "luci-app-run*.ipk" -print0 | while IFS= read -r -d '' file; do
-            base=$(basename "$file" .ipk)
-            cp -v "$file" "dist/${base}.ipk"
-          done
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: luci-app-run
-          path: dist/
-          retention-days: 1        # 只保留1天，减少占用
-
-  # ========================
-  # Release Job
-  # ========================
-  release:
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: dist-all
-
-      - name: Flatten files
+      - name: Prepare release files
         run: |
           mkdir -p release
-          find dist-all -type f -name "*.ipk" -exec cp -v {} release/ \;
+          find sdk/bin -type f -name "luci-app-run*.ipk" -exec cp -v {} release/ \;
           ls -lh release/
 
       - name: Create Release
